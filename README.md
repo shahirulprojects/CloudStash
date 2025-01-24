@@ -1,9 +1,4 @@
 <div align="center">
-  <br />
-    <a href="https://youtu.be/lie0cr3wESQ" target="_blank">
-      <img src="https://i.ibb.co/wR9G2k3/Readme-Thumbnail.png" alt="Project Banner">
-    </a>
-  <br />
 
   <div>
      <img src="https://img.shields.io/badge/-Next_JS-black?style=for-the-badge&logoColor=white&logo=nextdotjs&color=000000" alt="nextdotjs" />
@@ -12,7 +7,7 @@
     <img src="https://img.shields.io/badge/-Appwrite-black?style=for-the-badge&logoColor=white&logo=appwrite&color=FD366E" alt="appwrite" />
   </div>
 
-<h3 align="center">Files Storage And Sharing Platform</h3>
+<h3 align="center">A File Storage and Sharing Platform/h3>
 
 </div>
 
@@ -25,7 +20,7 @@
 
 ## <a name="introduction">🤖 Introduction</a>
 
-A storage management and file sharing platform that lets users effortlessly upload, organize, and share files. Built with the latest Next.js 15 and the Appwrite Node SDK, utilizing advanced features for seamless file management.
+Built with Next.js, CloudStash is a storage management and file sharing platform that lets users effortlessly upload, organize, and share files. Built with the latest Next.js 15 and the Appwrite Node SDK, utilizing advanced features for seamless file management.
 
 
 ## <a name="tech-stack">⚙️ Tech Stack</a>
