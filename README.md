@@ -7,7 +7,7 @@
     <img src="https://img.shields.io/badge/-Appwrite-black?style=for-the-badge&logoColor=white&logo=appwrite&color=FD366E" alt="appwrite" />
   </div>
 
-<h3 align="center">A File Storage and Sharing Platform/h3>
+<h3 align="center">A File Storage and Sharing Platform </h3>
 
 </div>
 
@@ -36,7 +36,7 @@ Built with Next.js, CloudStash is a storage management and file sharing platform
 
 👉 **User Authentication with Appwrite**: Implement signup, login, and logout functionality using Appwrite's authentication system.
 
-👉 **FIle Uploads**: Effortlessly upload a variety of file types, including documents, images, videos, and audio, ensuring all your important data.
+👉 **File Uploads**: Effortlessly upload a variety of file types, including documents, images, videos, and audio, ensuring all your important data.
 
 👉 **View and Manage Files**: Users can browse through their uploaded files stored in Appwrite storage, view on a new tab, rename file or delete.
 
@@ -97,7 +97,7 @@ NEXT_APPWRITE_SECRET=""
 ```
 
 Replace the values with your actual Appwrite credentials. You can obtain these credentials by signing up &
-creating a new project on the [Appwrite website](https://appwrite.io/).
+creating a new project on [Appwrite](https://appwrite.io/).
 
 **Running the Project**
 
