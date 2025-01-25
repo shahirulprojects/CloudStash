@@ -4,6 +4,7 @@ import { ID, Query } from "node-appwrite";
 import { createAdminClient } from "../appwrite";
 import { appwriteConfig } from "../appwrite/config";
 import { parseStringify } from "../utils";
+import { cookies } from "next/headers";
 
 // create account flow
 // 1. User enters full name and email
@@ -14,6 +15,12 @@ import { parseStringify } from "../utils";
 // 6. Return the user's accountId that will be used to complete the login process later with the OTP
 // 7. Verify OTP and authenticate to login
 
+const handleError = (error: unknown, message: string) => {
+  console.log(error, message);
+  throw error;
+};
+
+// CREATE ACCOUNT START
 const getUserByEmail = async (email: string) => {
   const { databases } = await createAdminClient(); // get permission of admin to access the database
 
@@ -27,12 +34,7 @@ const getUserByEmail = async (email: string) => {
   return result.total > 0 ? result.documents[0] : null;
 };
 
-const handleError = (error: unknown, message: string) => {
-  console.log(error, message);
-  throw error;
-};
-
-const sendEmailOTP = async ({ email }: { email: string }) => {
+export const sendEmailOTP = async ({ email }: { email: string }) => {
   const { account } = await createAdminClient(); // get permission of admin to access the database
 
   try {
@@ -79,3 +81,35 @@ export const createAccount = async ({
 
   return parseStringify({ accountId }); // whenever passing large payload through server actions, we first have to stringify and then parse that value
 };
+// CREATE ACCOUNT ENDS
+
+// VERIFY OTP STARTS
+export const verifySecret = async ({
+  accountId,
+  password,
+}: {
+  accountId: string;
+  password: string;
+}) => {
+  try {
+    const { account } = await createAdminClient();
+
+    // create a session for the user
+    const session = await account.createSession(accountId, password);
+
+    // set the session to a cookie with correct options
+    const cookieStore = await cookies();
+    cookieStore.set("appwrite-session", session.secret, {
+      path: "/",
+      httpOnly: true,
+      sameSite: "strict",
+      secure: true,
+    });
+
+    return parseStringify({ sessionId: session.$id });
+  } catch (error) {
+    handleError(error, "Failed to verify OTP");
+  }
+};
+
+// VERIFY OTP ENDS
