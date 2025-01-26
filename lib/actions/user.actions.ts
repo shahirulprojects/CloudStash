@@ -1,10 +1,11 @@
 "use server";
 
 import { ID, Query } from "node-appwrite";
-import { createAdminClient } from "../appwrite";
+import { createAdminClient, createSessionClient } from "../appwrite";
 import { appwriteConfig } from "../appwrite/config";
 import { parseStringify } from "../utils";
 import { cookies } from "next/headers";
+import { avatarPlaceholderUrl } from "@/constants";
 
 // create account flow
 // 1. User enters full name and email
@@ -72,8 +73,7 @@ export const createAccount = async ({
       {
         fullName,
         email,
-        avatar:
-          "https://www.google.com/url?sa=i&url=https%3A%2F%2Fwww.pngkey.com%2Fmaxpic%2Fu2q8u2w7e6y3r5y3%2F&psig=AOvVaw2dW-qNU4EA5R_KtS09y5UE&ust=1737868463864000&source=images&cd=vfe&opi=89978449&ved=0CBQQjRxqFwoTCOi0rteOkIsDFQAAAAAdAAAAABAE",
+        avatar: avatarPlaceholderUrl,
         accountId,
       }
     );
@@ -111,5 +111,23 @@ export const verifySecret = async ({
     handleError(error, "Failed to verify OTP");
   }
 };
-
 // VERIFY OTP ENDS
+
+// GET CURRENT USER STARTS
+export const getCurrentUser = async () => {
+  const { databases, account } = await createSessionClient(); // session client because we want to get the info about the session
+
+  const result = await account.get(); // get the account that is using the session
+
+  const user = await databases.listDocuments(
+    appwriteConfig.databaseId,
+    appwriteConfig.usersCollectionId,
+    [Query.equal("accountId", result.$id)] // check the database to find the accountId that matches the account that is using the session
+  );
+
+  if (user.total <= 0) return null; // if there is no user return null
+
+  return parseStringify(user.documents[0]); // if there is a user we will parseStringify it
+};
+
+// GET CURRENT USER ENDS
