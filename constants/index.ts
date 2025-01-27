@@ -84,3 +84,4 @@ export const sortTypes = [
 export const avatarPlaceholderUrl =
   "https://www.pngkey.com/png/full/115-1150152_default-profile-picture-avatar-png-green.png";
 export const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+export const MAX_FILE_VALUE = 50;
