@@ -24,10 +24,10 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
             </p>
           </div>
           <Image
-            src="/assets/images/files.png"
+            src="/assets/images/personfiles.webp"
             alt="Files"
-            width={342}
-            height={342}
+            width={370}
+            height={370}
             className="transition-all hover:rotate-2 hover:scale-10"
           />
         </div>

@@ -7,6 +7,8 @@ import { parseStringify } from "../utils";
 import { cookies } from "next/headers";
 import { avatarPlaceholderUrl } from "@/constants";
 import { redirect } from "next/navigation";
+import * as bcrypt from "bcryptjs";
+import * as jwt from "jsonwebtoken";
 
 // create account flow
 // 1. User enters full name and email
@@ -31,56 +33,81 @@ const getUserByEmail = async (email: string) => {
 };
 
 export const sendEmailOTP = async ({ email }: { email: string }) => {
-  const { account } = await createAdminClient(); // get permission of admin to access the database
+  const { account } = await createAdminClient(); // get admin level permission to access the account
 
   try {
-    const session = await account.createEmailToken(ID.unique(), email); // pass in the unique user ID and the inserted email to get access to the session
+    // Delete any existing email tokens for this user
+    try {
+      await account.deleteSessions();
+    } catch (error) {
+      console.log("No existing sessions to clear");
+    }
 
+    // Create new email token (15 minutes expiry by default)
+    const session = await account.createEmailToken(ID.unique(), email);
     return session.userId;
-  } catch (error) {
-    handleError(error, "Failed to send email OTP"); // pass in the error and the message
+  } catch (error: any) {
+    console.error("Failed to send email OTP:", error);
+    throw new Error("Failed to send OTP. Please try again.");
   }
 };
 
 const handleError = (error: unknown, message: string) => {
-  console.log(error, message);
-  throw error;
+  console.error(message, error);
+  if (error instanceof Error) {
+    throw new Error(error.message);
+  }
+  throw new Error(message);
 };
 
 // CREATE ACCOUNT STARTS
 export const createAccount = async ({
   fullName,
   email,
+  password,
 }: {
   fullName: string;
   email: string;
+  password: string;
 }) => {
-  // check if the user exists by passing the inserted email
-  const existingUser = await getUserByEmail(email);
+  try {
+    // check if the user exists by passing the inserted email
+    const existingUser = await getUserByEmail(email);
+    if (existingUser) {
+      return parseStringify({ accountId: null, error: "User already exists" });
+    }
 
-  //if user exists send the email OTP to the inserted email
-  const accountId = await sendEmailOTP({ email });
-  if (!accountId) throw new Error("Failed to send an OTP");
+    // Hash only the password (cannot hashed email since we wont be able to won't be able to send OTP emails,can't verify email uniqueness properly, users won't be able to use their email to log in)
+    const salt = await bcrypt.genSalt(10); // creates random string like "8x7fgh3k"
+    const hashedPassword = await bcrypt.hash(password, salt); // will be like (password + 8x7fgh3k) and then it got hashed. This will result in different hashedPassword (since their salt is different) even if two users have the same password
 
-  // if user does not exists meaning that the email is not used yet, we will create a new user
-  if (!existingUser) {
+    //if user exists send the email OTP to the inserted email
+    const accountId = await sendEmailOTP({ email });
+    if (!accountId) {
+      return parseStringify({ accountId: null, error: "Failed to send OTP" });
+    }
+
+    // Create new user
     const { databases } = await createAdminClient();
 
+    // access the specific database and the specific collection and then fill in the entered data
     await databases.createDocument(
       appwriteConfig.databaseId,
       appwriteConfig.usersCollectionId,
-      ID.unique(), // give a unique user id to the user
-      // define the attributes for the user based on the users collection
+      ID.unique(),
       {
         fullName,
         email,
         avatar: avatarPlaceholderUrl,
         accountId,
+        password: hashedPassword,
       }
     );
-  }
 
-  return parseStringify({ accountId }); // whenever passing large payload through server actions, we first have to stringify and then parse that value
+    return parseStringify({ accountId });
+  } catch (error) {
+    handleError(error, "Failed to create account");
+  }
 };
 // CREATE ACCOUNT ENDS
 
@@ -95,57 +122,115 @@ export const verifySecret = async ({
   try {
     const { account } = await createAdminClient();
 
-    // create a session for the user
-    const session = await account.createSession(accountId, password);
+    try {
+      // create a session for the user
+      const session = await account.createSession(accountId, password);
 
-    // set the session to a cookie with correct options
-    (await cookies()).set("appwrite-session", session.secret, {
-      path: "/",
-      httpOnly: true,
-      sameSite: "strict",
-      secure: true,
-    });
+      // Generate JWT token
+      const token = jwt.sign({ userId: accountId }, appwriteConfig.jwtSecret, {
+        expiresIn: "24h",
+      });
 
-    return parseStringify({ sessionId: session.$id });
-  } catch (error) {
-    handleError(error, "Failed to verify OTP");
+      // set the session and JWT token to cookies with correct options
+      const cookieStore = await cookies();
+      cookieStore.set("appwrite-session", session.secret, {
+        path: "/",
+        httpOnly: true,
+        sameSite: "strict",
+        secure: true,
+      });
+      cookieStore.set("jwt-token", token, {
+        path: "/",
+        httpOnly: true,
+        sameSite: "strict",
+        secure: true,
+      });
+
+      return parseStringify({ sessionId: session.$id });
+    } catch (error: any) {
+      // Check if the error is related to invalid or expired OTP
+      if (error?.message?.includes("token") || error?.code === 401) {
+        if (error?.message?.includes("expired")) {
+          return parseStringify({
+            error: "OTP has expired. Please request a new one.",
+          });
+        }
+        return parseStringify({ error: "Invalid OTP code. Please try again." });
+      }
+      throw error;
+    }
+  } catch (error: any) {
+    console.error("Verification error:", error);
+    throw new Error(
+      error?.message || "Failed to verify OTP. Please try again."
+    );
   }
 };
 // VERIFY OTP ENDS
 
 // GET CURRENT USER STARTS
 export const getCurrentUser = async () => {
-  const { databases, account } = await createSessionClient(); // session client because we want to get the info about the session
+  try {
+    const cookieStore = await cookies();
+    const session = cookieStore.get("appwrite-session");
 
-  const result = await account.get(); // get the account that is using the session
+    if (!session || !session.value) {
+      return null;
+    }
 
-  const user = await databases.listDocuments(
-    appwriteConfig.databaseId,
-    appwriteConfig.usersCollectionId,
-    [Query.equal("accountId", result.$id)] // check the database to find the accountId that matches the account that is using the session
-  );
+    const { databases, account } = await createSessionClient();
 
-  if (user.total <= 0) return null; // if there is no user return null
+    try {
+      const result = await account.get();
 
-  return parseStringify(user.documents[0]); // if there is a user we will parseStringify it
+      const user = await databases.listDocuments(
+        appwriteConfig.databaseId,
+        appwriteConfig.usersCollectionId,
+        [Query.equal("accountId", result.$id)]
+      );
+
+      if (user.total <= 0) return null;
+
+      return parseStringify(user.documents[0]);
+    } catch (error) {
+      console.error("Error getting user:", error);
+      return null;
+    }
+  } catch (error) {
+    console.error("Session error:", error);
+    return null;
+  }
 };
-
 // GET CURRENT USER ENDS
 
 // SIGN IN USER STARTS
-export const SignInUser = async ({ email }: { email: string }) => {
+export const SignInUser = async ({
+  email,
+  password,
+}: {
+  email: string;
+  password: string;
+}) => {
   try {
-    // check if user exists or not
+    // check if user exists
     const existingUser = await getUserByEmail(email);
-
-    // if exists, send OTP
-    if (existingUser) {
-      await sendEmailOTP({ email });
-      return parseStringify({ accountId: existingUser.accountId }); // return the account Id from the existing user
+    if (!existingUser) {
+      return parseStringify({ accountId: null, error: "User not found" });
     }
 
-    // if not exists, return null
-    return parseStringify({ accountId: null, error: "User not found" });
+    // Verify password
+    const isValidPassword = await bcrypt.compare(
+      password,
+      existingUser.password
+    );
+    if (!isValidPassword) {
+      return parseStringify({ accountId: null, error: "Invalid password" });
+    }
+
+    // Send OTP for 2FA
+    await sendEmailOTP({ email });
+
+    return parseStringify({ accountId: existingUser.accountId });
   } catch (error) {
     handleError(error, "Failed to sign in user");
   }
@@ -161,12 +246,13 @@ export const signOutUser = async () => {
     await account.deleteSession("current");
 
     // delete the cookies
-    (await cookies()).delete("appwrite-session");
+    const cookieStore = await cookies();
+    cookieStore.delete("appwrite-session");
+    cookieStore.delete("jwt-token");
   } catch (error) {
     handleError(error, "Failed to sign out user");
   } finally {
     redirect("/sign-in");
   }
 };
-
 // SIGN OUT USER ENDS

@@ -24,16 +24,42 @@ import OTPModal from "./OTPModal";
 type FormType = "sign-in" | "sign-up";
 
 const authFormSchema = (formType: FormType) => {
-  return z.object({
-    email: z.string().email(),
-    fullName:
-      formType == "sign-up" ? z.string().min(2).max(50) : z.string().optional(),
-  });
+  return z
+    .object({
+      email: z.string().email(),
+      fullName:
+        formType == "sign-up"
+          ? z.string().min(2).max(50)
+          : z.string().optional(),
+      password: z
+        .string()
+        .min(8, "Password must be at least 8 characters")
+        .max(50, "Password cannot exceed 50 characters")
+        .regex(
+          /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
+          "Password must contain at least 8 characters, one uppercase letter, one lowercase letter, one number and one special character"
+        ),
+      confirmPassword:
+        formType === "sign-up" ? z.string() : z.string().optional(),
+    })
+    .refine(
+      (data) => {
+        if (formType === "sign-up") {
+          return data.password === data.confirmPassword;
+        }
+        return true;
+      },
+      {
+        message: "Passwords don't match",
+        path: ["confirmPassword"],
+      }
+    );
 };
+
 const AuthForm = ({ type }: { type: FormType }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [accountId, setAccountId] = useState(null);
+  const [accountId, setAccountId] = useState<string | null>(null);
 
   // 1. Define your form.
   const formSchema = authFormSchema(type);
@@ -42,6 +68,8 @@ const AuthForm = ({ type }: { type: FormType }) => {
     defaultValues: {
       fullName: "",
       email: "",
+      password: "",
+      confirmPassword: "",
     },
   });
 
@@ -51,17 +79,35 @@ const AuthForm = ({ type }: { type: FormType }) => {
     setErrorMessage("");
 
     try {
-      const user =
-        type === "sign-up"
-          ? await createAccount({
-              fullName: values.fullName || "", // set to empty string because if we log in we dont need full name field
-              email: values.email,
-            })
-          : await SignInUser({ email: values.email });
+      let response;
+      if (type === "sign-up") {
+        response = await createAccount({
+          fullName: values.fullName || "",
+          email: values.email,
+          password: values.password,
+        });
+      } else {
+        response = await SignInUser({
+          email: values.email,
+          password: values.password,
+        });
+      }
 
-      setAccountId(user.accountId); // get the accountId that we have returned in the createAccount function
-    } catch {
-      setErrorMessage("Failed to create an account. Please try again.");
+      if (response?.error) {
+        setErrorMessage(response.error);
+        return;
+      }
+
+      if (!response?.accountId) {
+        setErrorMessage("Something went wrong. Please try again.");
+        return;
+      }
+
+      setAccountId(response.accountId);
+    } catch (error: any) {
+      setErrorMessage(
+        error?.message || "Failed to process request. Please try again."
+      );
     } finally {
       setIsLoading(false);
     }
@@ -70,8 +116,18 @@ const AuthForm = ({ type }: { type: FormType }) => {
   return (
     <>
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="auth-form">
-          <h1 className="form-title ">
+        <form
+          onSubmit={form.handleSubmit(onSubmit)}
+          className="auth-form"
+          suppressHydrationWarning
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              form.handleSubmit(onSubmit)();
+            }
+          }}
+        >
+          <h1 className="form-title">
             {type === "sign-in" ? "Sign In" : "Sign Up"}
           </h1>
           {type === "sign-up" && (
@@ -87,10 +143,11 @@ const AuthForm = ({ type }: { type: FormType }) => {
                         placeholder="Enter your full name"
                         className="shad-input"
                         {...field}
+                        autoComplete="name"
+                        suppressHydrationWarning
                       />
                     </FormControl>
                   </div>
-
                   <FormMessage className="shad-form-message" />
                 </FormItem>
               )}
@@ -105,25 +162,75 @@ const AuthForm = ({ type }: { type: FormType }) => {
                   <FormLabel className="shad-form-label">Email</FormLabel>
                   <FormControl>
                     <Input
+                      type="email"
                       placeholder="Enter your email"
                       className="shad-input"
                       {...field}
+                      autoComplete="email"
+                      suppressHydrationWarning
                     />
                   </FormControl>
                 </div>
-
                 <FormMessage className="shad-form-message" />
               </FormItem>
             )}
           />
 
+          <FormField
+            control={form.control}
+            name="password"
+            render={({ field }) => (
+              <FormItem>
+                <div className="shad-form-item">
+                  <FormLabel className="shad-form-label">Password</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="password"
+                      placeholder="Enter your password"
+                      className="shad-input"
+                      {...field}
+                      suppressHydrationWarning
+                    />
+                  </FormControl>
+                </div>
+                <FormMessage className="shad-form-message" />
+              </FormItem>
+            )}
+          />
+
+          {type === "sign-up" && (
+            <FormField
+              control={form.control}
+              name="confirmPassword"
+              render={({ field }) => (
+                <FormItem>
+                  <div className="shad-form-item">
+                    <FormLabel className="shad-form-label">
+                      Confirm Password
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        type="password"
+                        placeholder="Confirm your password"
+                        className="shad-input"
+                        {...field}
+                        suppressHydrationWarning
+                      />
+                    </FormControl>
+                  </div>
+                  <FormMessage className="shad-form-message" />
+                </FormItem>
+              )}
+            />
+          )}
+
           <Button
             type="submit"
             className="form-submit-button"
             disabled={isLoading}
+            suppressHydrationWarning
           >
             {type === "sign-in" ? "Sign In" : "Sign Up"}
-
             {isLoading && (
               <Image
                 src="/assets/icons/loader.svg"
@@ -131,6 +238,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
                 width={24}
                 height={24}
                 className="animate-spin ml-2"
+                priority
               />
             )}
           </Button>

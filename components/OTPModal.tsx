@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,31 +31,74 @@ const OTPModal = ({
   email: string;
 }) => {
   const router = useRouter();
-  const [isOpen, setIsOpen] = useState(true); // because we want it to be opened the moment that we get the accountId
+  const [isOpen, setIsOpen] = useState(true);
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [resendCooldown, setResendCooldown] = useState(0);
 
-  const handleSubmit = async (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.preventDefault(); // to prevent the form from reloading when submitting
+  // Countdown timer for resend cooldown
+  useEffect(() => {
+    if (resendCooldown > 0) {
+      const timer = setTimeout(() => {
+        setResendCooldown(resendCooldown - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [resendCooldown]);
+
+  const handleSubmit = async (
+    e: React.MouseEvent<HTMLButtonElement> | React.KeyboardEvent<HTMLDivElement>
+  ) => {
+    e.preventDefault();
+    if (password.length !== 6) {
+      setError("Please enter all 6 digits");
+      return;
+    }
+
     setIsLoading(true);
+    setError("");
 
     try {
-      // call API to verify OTP
-      const sessionId = await verifySecret({ accountId, password });
+      const response = await verifySecret({ accountId, password });
 
-      // if sessionId exists mening OTP is verified, we will route to home
-      if (sessionId) router.push("/");
-    } catch (error) {
-      console.log("Failed to verify OTP", error);
+      if (response?.error) {
+        setError(response.error);
+        setPassword(""); // Clear invalid OTP
+        return;
+      }
+
+      router.push("/");
+    } catch (error: any) {
+      setError(error?.message || "Failed to verify OTP. Please try again.");
+      setPassword(""); // Clear the OTP input on error
     } finally {
       setIsLoading(false);
     }
   };
 
-  // in case the user missed the OTP, we can resend it
   const handleResendOtp = async () => {
-    // call API to resend OTP
-    await sendEmailOTP({ email });
+    if (resendCooldown > 0) return;
+
+    setIsLoading(true);
+    setError("");
+    try {
+      await sendEmailOTP({ email });
+      setPassword(""); // Clear the previous OTP
+      setError("New OTP has been sent to your email");
+      setResendCooldown(30); // Start 30-second cooldown
+    } catch (error: any) {
+      setError("Failed to resend OTP. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle Enter key press
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "Enter" && password.length === 6) {
+      handleSubmit(e);
+    }
   };
 
   return (
@@ -79,16 +122,35 @@ const OTPModal = ({
           </AlertDialogDescription>
         </AlertDialogHeader>
 
-        <InputOTP maxLength={6} value={password} onChange={setPassword}>
-          <InputOTPGroup className="shad-otp">
-            <InputOTPSlot index={0} className="shad-otp-slot" />
-            <InputOTPSlot index={1} className="shad-otp-slot" />
-            <InputOTPSlot index={2} className="shad-otp-slot" />
-            <InputOTPSlot index={3} className="shad-otp-slot" />
-            <InputOTPSlot index={4} className="shad-otp-slot" />
-            <InputOTPSlot index={5} className="shad-otp-slot" />
-          </InputOTPGroup>
-        </InputOTP>
+        <div onKeyDown={handleKeyPress}>
+          <InputOTP
+            maxLength={6}
+            value={password}
+            onChange={(value) => {
+              setError(""); // Clear error when user types
+              setPassword(value);
+            }}
+          >
+            <InputOTPGroup className="shad-otp">
+              <InputOTPSlot index={0} className="shad-otp-slot" />
+              <InputOTPSlot index={1} className="shad-otp-slot" />
+              <InputOTPSlot index={2} className="shad-otp-slot" />
+              <InputOTPSlot index={3} className="shad-otp-slot" />
+              <InputOTPSlot index={4} className="shad-otp-slot" />
+              <InputOTPSlot index={5} className="shad-otp-slot" />
+            </InputOTPGroup>
+          </InputOTP>
+        </div>
+
+        {error && (
+          <p
+            className={`text-sm text-center ${
+              error.includes("sent") ? "text-green-500" : "text-red-500"
+            }`}
+          >
+            {error}
+          </p>
+        )}
 
         <AlertDialogFooter>
           <div className="flex w-full flex-col gap-4">
@@ -96,6 +158,7 @@ const OTPModal = ({
               onClick={handleSubmit}
               className="shad-submit-btn h-12"
               type="button"
+              disabled={isLoading || password.length !== 6}
             >
               Submit
               {isLoading && (
@@ -116,8 +179,11 @@ const OTPModal = ({
                 variant="link"
                 className="pl-1 text-brand"
                 onClick={handleResendOtp}
+                disabled={isLoading || resendCooldown > 0}
               >
-                Click to resend
+                {resendCooldown > 0
+                  ? `Wait ${resendCooldown}s to resend`
+                  : "Click to resend"}
               </Button>
             </div>
           </div>
