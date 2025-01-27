@@ -8,7 +8,6 @@ import { cookies } from "next/headers";
 import { avatarPlaceholderUrl } from "@/constants";
 import { redirect } from "next/navigation";
 import * as bcrypt from "bcryptjs";
-import * as jwt from "jsonwebtoken";
 
 // create account flow
 // 1. User enters full name and email
@@ -126,20 +125,9 @@ export const verifySecret = async ({
       // create a session for the user
       const session = await account.createSession(accountId, password);
 
-      // Generate JWT token
-      const token = jwt.sign({ userId: accountId }, appwriteConfig.jwtSecret, {
-        expiresIn: "24h",
-      });
-
-      // set the session and JWT token to cookies with correct options
+      // set the session to cookies with correct options
       const cookieStore = await cookies();
       cookieStore.set("appwrite-session", session.secret, {
-        path: "/",
-        httpOnly: true,
-        sameSite: "strict",
-        secure: true,
-      });
-      cookieStore.set("jwt-token", token, {
         path: "/",
         httpOnly: true,
         sameSite: "strict",
@@ -248,7 +236,6 @@ export const signOutUser = async () => {
     // delete the cookies
     const cookieStore = await cookies();
     cookieStore.delete("appwrite-session");
-    cookieStore.delete("jwt-token");
   } catch (error) {
     handleError(error, "Failed to sign out user");
   } finally {
