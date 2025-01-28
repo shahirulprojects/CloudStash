@@ -1,11 +1,12 @@
 "use server";
 
-import { ID } from "node-appwrite";
+import { ID, Models, Query } from "node-appwrite";
 import { createAdminClient } from "../appwrite";
 import { appwriteConfig } from "../appwrite/config";
 import { InputFile } from "node-appwrite/file";
 import { constructFileUrl, getFileType, parseStringify } from "../utils";
 import { revalidatePath } from "next/cache";
+import { getCurrentUser } from "./user.actions";
 
 const handleError = (error: unknown, message: string) => {
   console.error(message, error);
@@ -71,3 +72,47 @@ export const uploadFile = async ({
 };
 
 // UPLOAD FILE ENDS
+
+// CREATE QUERY STARTS
+
+const createQueries = (currentUser: Models.Document) => {
+  const queries = [
+    // check if the file is owned by the owner or shareed to other users through their email
+    Query.or([
+      Query.equal("owner", [currentUser.$id]),
+      Query.contains("users", [currentUser.email]),
+    ]),
+  ];
+
+  // TODO: Search,sort,limits,etc
+
+  return queries;
+};
+
+// CREATE QUERY ENDS
+
+// GET FILE STARTS
+export const getFiles = async () => {
+  const { databases } = await createAdminClient();
+
+  try {
+    // show only the files that the current user has access to (either owned or shared)
+    const currentUser = await getCurrentUser();
+
+    if (!currentUser) throw new Error("User not found");
+
+    const queries = createQueries(currentUser);
+
+    const files = await databases.listDocuments(
+      appwriteConfig.databaseId,
+      appwriteConfig.filesCollectionId,
+      queries
+    );
+
+    return parseStringify(files);
+  } catch (error) {
+    handleError(error, "Failed to get files");
+  }
+};
+
+// GET FILE ENDS

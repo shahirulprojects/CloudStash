@@ -103,7 +103,7 @@ export const createAccount = async ({
       }
     );
 
-    return parseStringify({ accountId });
+    return parseStringify({ accountId }); // whenever passing large payload through server actions, we first have to stringify and then parse that value
   } catch (error) {
     handleError(error, "Failed to create account");
   }
@@ -169,12 +169,12 @@ export const getCurrentUser = async () => {
     const { databases, account } = await createSessionClient();
 
     try {
-      const result = await account.get();
+      const result = await account.get(); // get the account from the session
 
       const user = await databases.listDocuments(
         appwriteConfig.databaseId,
         appwriteConfig.usersCollectionId,
-        [Query.equal("accountId", result.$id)]
+        [Query.equal("accountId", result.$id)] // search the database and collection to find accountId that matches the result id
       );
 
       if (user.total <= 0) return null;
