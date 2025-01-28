@@ -25,7 +25,7 @@ import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 import { usePathname } from "next/navigation";
 import { renameFile } from "@/lib/actions/file.actions";
-import { FileDetails } from "./ActionsModalContent";
+import { FileDetails, ShareInput } from "./ActionsModalContent";
 
 const ActionDropdown = ({ file }: { file: Models.Document }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -33,6 +33,7 @@ const ActionDropdown = ({ file }: { file: Models.Document }) => {
   const [action, setAction] = useState<ActionType | null>(null); // useState of a type ActionType or null (since the state at the start is null)
   const [name, setName] = useState(file.name); // at the start, set the file name to its original name (this is later for rename operation)
   const [isLoading, setIsLoading] = useState(false);
+  const [emails, setEmails] = useState<string[]>([]); // an array of emails that we want to share the file with
   const path = usePathname();
 
   // sync name state with file prop changes
@@ -75,6 +76,8 @@ const ActionDropdown = ({ file }: { file: Models.Document }) => {
     setIsLoading(false);
   };
 
+  const handleRemoveUser = () => {};
+
   // render action label
   const renderDialogContent = () => {
     if (!action) return null;
@@ -95,6 +98,13 @@ const ActionDropdown = ({ file }: { file: Models.Document }) => {
             />
           )}
           {value === "details" && <FileDetails file={file} />}
+          {value === "share" && (
+            <ShareInput
+              file={file}
+              onInputChange={setEmails}
+              onRemove={handleRemoveUser}
+            />
+          )}
         </DialogHeader>
         {["rename", "delete", "share"].includes(value) && (
           <DialogFooter className="flex flex-col gap-3 md:flex-row">

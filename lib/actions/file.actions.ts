@@ -118,7 +118,6 @@ export const getFiles = async () => {
 // GET FILE ENDS
 
 // RENAME FILE STARTS
-
 export const renameFile = async ({
   fileId,
   name,
@@ -145,5 +144,33 @@ export const renameFile = async ({
     handleError(error, "Failed to rename file");
   }
 };
-
 // RENAME FILE ENDS
+
+// SHARE FILE STARTS
+export const updateFileUsers = async ({
+  fileId,
+  name,
+  extension,
+  path,
+}: RenameFileProps) => {
+  const { databases } = await createAdminClient();
+
+  try {
+    const newName = `${name}.${extension}`; // constructs the new file name by appending the extension to the base name
+    // updates the file's metadata in the database, not the actual file in storage, since we manage metadata separately
+    const updatedFile = await databases.updateDocument(
+      appwriteConfig.databaseId,
+      appwriteConfig.filesCollectionId,
+      fileId,
+      {
+        name: newName, // sets the new name for the file in the database
+      }
+    );
+
+    revalidatePath(path);
+    return parseStringify(updatedFile);
+  } catch (error) {
+    handleError(error, "Failed to rename file");
+  }
+};
+// SHARE FILE ENDS
