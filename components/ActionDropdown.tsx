@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -23,6 +23,9 @@ import Link from "next/link";
 import { constructDownloadUrl } from "@/lib/utils";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
+import { usePathname } from "next/navigation";
+import { renameFile } from "@/lib/actions/file.actions";
+import { FileDetails } from "./ActionsModalContent";
 
 const ActionDropdown = ({ file }: { file: Models.Document }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -30,6 +33,12 @@ const ActionDropdown = ({ file }: { file: Models.Document }) => {
   const [action, setAction] = useState<ActionType | null>(null); // useState of a type ActionType or null (since the state at the start is null)
   const [name, setName] = useState(file.name); // at the start, set the file name to its original name (this is later for rename operation)
   const [isLoading, setIsLoading] = useState(false);
+  const path = usePathname();
+
+  // sync name state with file prop changes
+  useEffect(() => {
+    setName(file.name);
+  }, [file.name]);
 
   // close all modals (cancel button is clicked)
   const closeAllModals = () => {
@@ -43,7 +52,28 @@ const ActionDropdown = ({ file }: { file: Models.Document }) => {
   };
 
   // handle action (the rename, delete, share button is clicked)
-  const handleAction = async () => {};
+  const handleAction = async () => {
+    if (!action) return;
+
+    setIsLoading(true);
+    let success = false;
+
+    const actions = {
+      // different callback frp different action
+      rename: () =>
+        renameFile({ fileId: file.$id, name, extension: file.extension, path }),
+      share: () => console.log("share"),
+      delete: () => console.log("delete"),
+    };
+
+    // modify the success status based on the return of the action
+    success = await actions[action.value as keyof typeof actions](); // access a specific  action value meaning if it is rename, we will only call the rename functionality
+    // as keyof typeof so that the action.value  is either rename, share, or delete
+
+    if (success) closeAllModals();
+
+    setIsLoading(false);
+  };
 
   // render action label
   const renderDialogContent = () => {
@@ -64,6 +94,7 @@ const ActionDropdown = ({ file }: { file: Models.Document }) => {
               onChange={(e) => setName(e.target.value)}
             />
           )}
+          {value === "details" && <FileDetails file={file} />}
         </DialogHeader>
         {["rename", "delete", "share"].includes(value) && (
           <DialogFooter className="flex flex-col gap-3 md:flex-row">
