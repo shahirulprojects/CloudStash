@@ -28,7 +28,7 @@ export const uploadFile = async ({
     // creates an InputFile instance from the uploaded file buffer and its name
     const inputFile = InputFile.fromBuffer(file, file.name);
 
-    // stores the file in the specified bucket using a unique ID (appwrite storage functionality)
+    // stores the file in the specified bucket using a unique ID (stores in the appwrite storage not appwrite database)
     const bucketFile = await storage.createFile(
       appwriteConfig.bucketId,
       ID.unique(),

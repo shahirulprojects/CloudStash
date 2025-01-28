@@ -8,6 +8,8 @@ import Image from "next/image";
 import Thumbnail from "./Thumbnail";
 import { MAX_FILE_SIZE, MAX_FILE_VALUE } from "@/constants";
 import { useToast } from "@/hooks/use-toast";
+import { usePathname } from "next/navigation";
+import { uploadFile } from "@/lib/actions/file.actions";
 
 interface Props {
   ownerId: string;
@@ -15,35 +17,56 @@ interface Props {
   className?: string;
 }
 const FileUploader = ({ ownerId, accountId, className }: Props) => {
+  const path = usePathname();
   const { toast } = useToast();
   const [files, setFiles] = useState<File[]>([]); // type of file array
 
   // handles the file drop event and processes accepted files
-  const onDrop = useCallback(async (acceptedFiles: File[]) => {
-    setFiles(acceptedFiles); // updates the state with the accepted files
+  const onDrop = useCallback(
+    async (acceptedFiles: File[]) => {
+      setFiles(acceptedFiles); // updates the state with the accepted files
 
-    // maps through each accepted file to check its size and handle uploads
-    const uploadPromises = acceptedFiles.map(async (file) => {
-      // checks if the file exceeds the maximum allowed size
-      if (file.size > MAX_FILE_SIZE) {
-        // removes the oversized file from the state
-        setFiles((prevFiles) => prevFiles.filter((f) => f.name !== file.name));
+      // maps through each accepted file to check its size and handle uploads
+      // we call it uploadPromises so that we can upload multiple files at the same time
+      const uploadPromises = acceptedFiles.map(async (file) => {
+        // checks if the file exceeds the maximum allowed size
+        if (file.size > MAX_FILE_SIZE) {
+          // removes the oversized file from the state
+          setFiles((prevFiles) =>
+            prevFiles.filter((f) => f.name !== file.name)
+          );
 
-        // displays a toast notification to inform the user about the size limit
-        return toast({
-          description: (
-            <p className="body-2 text-white">
-              <span className="font-semibold">{file.name}</span> is too large.
-              Max file size is <span>{MAX_FILE_VALUE} </span> MB
-            </p>
-          ),
-          className: "error-toast",
-        });
-      }
-    });
-  }, []);
+          // displays a toast notification to inform the user about the size limit
+          return toast({
+            description: (
+              <p className="body-2 text-white">
+                <span className="font-semibold">{file.name}</span> is too large.
+                Max file size is <span>{MAX_FILE_VALUE} </span> MB
+              </p>
+            ),
+            className: "error-toast",
+          });
+        }
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop });
+        // uploads the file and updates the state to remove it from the list if the upload is successful
+        return uploadFile({ file, ownerId, accountId, path }).then(
+          (uploadedFile) => {
+            if (uploadedFile) {
+              // filters out the uploaded file from the state to keep the list updated
+              setFiles((prevFiles) =>
+                prevFiles.filter((f) => f.name !== file.name)
+              );
+            }
+          }
+        );
+      });
+
+      await Promise.all(uploadPromises); // await the upload process of all the files
+    },
+    [ownerId, accountId, path]
+  ); // call the callBack function when one of these variables change
+
+  const { getRootProps, getInputProps } = useDropzone({ onDrop });
 
   // handles the removal of a specific file from the upload list
   const handleRemoveFile = (
