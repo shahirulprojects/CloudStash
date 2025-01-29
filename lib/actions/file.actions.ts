@@ -149,28 +149,26 @@ export const renameFile = async ({
 // SHARE FILE STARTS
 export const updateFileUsers = async ({
   fileId,
-  name,
-  extension,
+  emails,
   path,
-}: RenameFileProps) => {
+}: UpdateFileUsersProps) => {
   const { databases } = await createAdminClient();
 
   try {
-    const newName = `${name}.${extension}`; // constructs the new file name by appending the extension to the base name
     // updates the file's metadata in the database, not the actual file in storage, since we manage metadata separately
     const updatedFile = await databases.updateDocument(
       appwriteConfig.databaseId,
       appwriteConfig.filesCollectionId,
       fileId,
       {
-        name: newName, // sets the new name for the file in the database
+        users: emails, // change the users attribute to include the newly inserted emails
       }
     );
 
     revalidatePath(path);
     return parseStringify(updatedFile);
   } catch (error) {
-    handleError(error, "Failed to rename file");
+    handleError(error, "Failed to update file");
   }
 };
 // SHARE FILE ENDS
