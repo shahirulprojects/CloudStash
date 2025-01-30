@@ -172,3 +172,31 @@ export const updateFileUsers = async ({
   }
 };
 // SHARE FILE ENDS
+
+// DELETE FILE STARTS
+export const deleteFile = async ({
+  fileId,
+  bucketFileId,
+  path,
+}: DeleteFileProps) => {
+  const { databases, storage } = await createAdminClient();
+
+  try {
+    // deleteds the file from both database (metadata) and storage
+    const deleteFile = await databases.deleteDocument(
+      appwriteConfig.databaseId,
+      appwriteConfig.filesCollectionId,
+      fileId
+    );
+
+    if (deleteFile) {
+      await storage.deleteFile(appwriteConfig.bucketId, bucketFileId);
+    }
+
+    revalidatePath(path);
+    return parseStringify({ status: "success" });
+  } catch (error) {
+    handleError(error, "Failed to delete file");
+  }
+};
+// DELETE FILE ENDS
