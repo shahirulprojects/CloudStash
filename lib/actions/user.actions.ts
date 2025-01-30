@@ -120,33 +120,18 @@ export const verifySecret = async ({
 }) => {
   try {
     const { account } = await createAdminClient();
+    const session = await account.createSession(accountId, password);
 
-    try {
-      // create a session for the user
-      const session = await account.createSession(accountId, password);
+    // set the session to cookies with correct options
+    const cookieStore = await cookies();
+    cookieStore.set("appwrite-session", session.secret, {
+      path: "/",
+      httpOnly: true,
+      sameSite: "strict",
+      secure: true,
+    });
 
-      // set the session to cookies with correct options
-      const cookieStore = await cookies();
-      cookieStore.set("appwrite-session", session.secret, {
-        path: "/",
-        httpOnly: true,
-        sameSite: "strict",
-        secure: true,
-      });
-
-      return parseStringify({ sessionId: session.$id });
-    } catch (error: any) {
-      // Check if the error is related to invalid or expired OTP
-      if (error?.message?.includes("token") || error?.code === 401) {
-        if (error?.message?.includes("expired")) {
-          return parseStringify({
-            error: "OTP has expired. Please request a new one.",
-          });
-        }
-        return parseStringify({ error: "Invalid OTP code. Please try again." });
-      }
-      throw error;
-    }
+    return parseStringify({ sessionId: session.$id });
   } catch (error: any) {
     console.error("Verification error:", error);
     throw new Error(
@@ -243,3 +228,64 @@ export const signOutUser = async () => {
   }
 };
 // SIGN OUT USER ENDS
+
+// PASSWORD RESET STARTS
+export const passwordReset = async ({ email }: { email: string }) => {
+  try {
+    const existingUser = await getUserByEmail(email);
+    if (!existingUser) {
+      return parseStringify({ error: "User not found" });
+    }
+
+    const accountId = await sendEmailOTP({ email });
+    if (!accountId) {
+      return parseStringify({ error: "Failed to send OTP" });
+    }
+
+    return parseStringify({ accountId: existingUser.accountId });
+  } catch (error) {
+    handleError(error, "Failed to initiate password reset");
+  }
+};
+// PASSWORD RESET ENDS
+
+// Add new password update function
+export const updatePassword = async ({
+  accountId,
+  newPassword,
+  confirmPassword,
+}: {
+  accountId: string;
+  newPassword: string;
+  confirmPassword: string;
+}) => {
+  try {
+    if (newPassword !== confirmPassword) {
+      return parseStringify({ error: "Passwords don't match" });
+    }
+
+    const { databases } = await createAdminClient();
+    const user = await databases.listDocuments(
+      appwriteConfig.databaseId,
+      appwriteConfig.usersCollectionId,
+      [Query.equal("accountId", accountId)]
+    );
+
+    if (user.total === 0) {
+      return parseStringify({ error: "User not found" });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    await databases.updateDocument(
+      appwriteConfig.databaseId,
+      appwriteConfig.usersCollectionId,
+      user.documents[0].$id,
+      { password: hashedPassword }
+    );
+
+    return parseStringify({ success: true });
+  } catch (error) {
+    handleError(error, "Failed to update password");
+  }
+};

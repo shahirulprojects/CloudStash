@@ -23,13 +23,17 @@ import { Button } from "./ui/button";
 import { useRouter } from "next/navigation";
 import { sendEmailOTP, verifySecret } from "@/lib/actions/user.actions";
 
+interface OTPModalProps {
+  accountId: string;
+  email: string;
+  onVerificationSuccess?: () => void;
+}
+
 const OTPModal = ({
   accountId,
   email,
-}: {
-  accountId: string;
-  email: string;
-}) => {
+  onVerificationSuccess,
+}: OTPModalProps) => {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(true);
   const [password, setPassword] = useState("");
@@ -60,18 +64,22 @@ const OTPModal = ({
     setError("");
 
     try {
-      const response = await verifySecret({ accountId, password });
+      const response = await verifySecret({
+        accountId,
+        password: password,
+      });
 
       if (response?.error) {
         setError(response.error);
-        setPassword(""); // Clear invalid OTP
+        setPassword("");
         return;
       }
 
-      router.push("/");
+      onVerificationSuccess?.();
+      setIsOpen(false);
     } catch (error: any) {
       setError(error?.message || "Failed to verify OTP. Please try again.");
-      setPassword(""); // Clear the OTP input on error
+      setPassword("");
     } finally {
       setIsLoading(false);
     }
