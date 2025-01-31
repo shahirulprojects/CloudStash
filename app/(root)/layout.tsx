@@ -6,6 +6,8 @@ import { getCurrentUser } from "@/lib/actions/user.actions";
 import { redirect } from "next/navigation";
 import React from "react";
 
+export const dynamic = "force-dynamic"; // this ensures the homepage is rendered on the server for each request due to cookie usage, preventing static rendering
+
 const Layout = async ({ children }: { children: React.ReactNode }) => {
   // fetch the current user
   const currentUser = await getCurrentUser();
