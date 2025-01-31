@@ -18,14 +18,14 @@ import * as bcrypt from "bcryptjs";
 // 6. Return the user's accountId that will be used to complete the login process later with the OTP
 // 7. Verify OTP and authenticate to login
 
-const getUserByEmail = async (email: string) => {
-  const { databases } = await createAdminClient(); // get permission of admin to access the database
+// make getUserByEmail available for other components
+export const getUserByEmail = async (email: string) => {
+  const { databases } = await createAdminClient();
 
-  // get the documents from a specific database and a specific collection
   const result = await databases.listDocuments(
     appwriteConfig.databaseId,
     appwriteConfig.usersCollectionId,
-    [Query.equal("email", [email])] // search for a specifc attribute (email) and return the list of array of the email
+    [Query.equal("email", [email])]
   );
 
   return result.total > 0 ? result.documents[0] : null;
