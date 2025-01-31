@@ -3,7 +3,7 @@ import { Suspense } from "react";
 
 const SignIn = () => (
   <Suspense fallback={<div>Loading...</div>}>
-    <AuthForm type="sign-in" />;
+    <AuthForm type="sign-in" />
   </Suspense>
 );
 
