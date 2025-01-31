@@ -20,7 +20,7 @@
 
 ## <a name="introduction">🤖 Introduction</a>
 
-Built with Next.js, CloudStash is a storage management and file sharing platform that lets users effortlessly upload, organize, and share files. Built with the latest Next.js 15 and the Appwrite Node SDK, utilizing advanced features for seamless file management.
+Built with Next.js, CloudStash is a Google Drive-inspired file storage and sharing platform that simplifies digital file management. CloudStash leverages Appwrite for secure authentication, including two-factor authentication (password and email OTP), ensuring enhanced security. With seamless file uploads, an intuitive dashboard, global search, and smart sorting, users can easily access, manage, and share their files. Designed with a sleek, responsive UI, CloudStash delivers a smooth and engaging experience across all devices.
 
 
 ## <a name="tech-stack">⚙️ Tech Stack</a>
@@ -34,7 +34,7 @@ Built with Next.js, CloudStash is a storage management and file sharing platform
 
 ## <a name="features">🔋 Features</a>
 
-👉 **User Authentication with Appwrite**: Implement signup, login, and logout functionality using Appwrite's authentication system.
+👉 **User Authentication with Appwrite**: Implement signup, login, logout, forgot password functionality including two-factor authentication (password and email OTP).
 
 👉 **File Uploads**: Effortlessly upload a variety of file types, including documents, images, videos, and audio, ensuring all your important data.
 
