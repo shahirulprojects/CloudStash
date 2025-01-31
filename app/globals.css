@@ -306,7 +306,7 @@
     @apply h3 font-bold md:text-center lg:text-left !important;
   }
   .chart-description {
-    @apply subtitle-1 mt-2 w-full text-white/70 md:text-center lg:text-left !important;
+    @apply subtitle-1 mt-2 w-full text-white md:text-center lg:text-left !important;
   }
 
   /* FileUploader */
