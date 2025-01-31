@@ -1,6 +1,10 @@
 import AuthForm from "@/components/AuthForm";
-import React from "react";
+import React, { Suspense } from "react";
 
-const PasswordReset = () => <AuthForm type="passwordreset" />;
+const PasswordReset = () => (
+  <Suspense fallback={<div>Loading...</div>}>
+    <AuthForm type="passwordreset" />
+  </Suspense>
+);
 
 export default PasswordReset;
