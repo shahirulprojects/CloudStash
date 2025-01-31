@@ -75,7 +75,13 @@ export const uploadFile = async ({
 
 // CREATE QUERY STARTS
 
-const createQueries = (currentUser: Models.Document) => {
+const createQueries = (
+  currentUser: Models.Document,
+  types: string[],
+  searchText: string,
+  sort: string,
+  limit?: number
+) => {
   const queries = [
     // check if the file is owned by the owner or shareed to other users through their email
     Query.or([
@@ -84,7 +90,25 @@ const createQueries = (currentUser: Models.Document) => {
     ]),
   ];
 
-  // TODO: Search,sort,limits,etc
+  if (types.length > 0) {
+    queries.push(Query.equal("type", types)); // if types are provided, add a query to filter by type
+  }
+
+  if (searchText) {
+    queries.push(Query.contains("name", searchText)); // if search text is provided, add a query to filter by search text
+  }
+
+  if (limit) {
+    queries.push(Query.limit(limit)); // if limit is provided, add a query to limit the number of files
+  }
+
+  if (sort) {
+    const [sortBy, orderBy] = sort.split("-"); // splits the sort string into sort by and order by
+
+    queries.push(
+      orderBy === "asc" ? Query.orderAsc(sortBy) : Query.orderDesc(sortBy)
+    ); // if order by is asc, add a query to sort by in ascending order, otherwise add a query to sort by in descending order
+  }
 
   return queries;
 };
@@ -92,7 +116,12 @@ const createQueries = (currentUser: Models.Document) => {
 // CREATE QUERY ENDS
 
 // GET FILE STARTS
-export const getFiles = async () => {
+export const getFiles = async ({
+  types = [],
+  searchText = "",
+  sort = "$createdAt-desc", // sort by created at in descending order
+  limit,
+}: GetFilesProps) => {
   const { databases } = await createAdminClient();
 
   try {
@@ -101,7 +130,7 @@ export const getFiles = async () => {
 
     if (!currentUser) throw new Error("User not found");
 
-    const queries = createQueries(currentUser);
+    const queries = createQueries(currentUser, types, searchText, sort, limit);
 
     const files = await databases.listDocuments(
       appwriteConfig.databaseId,

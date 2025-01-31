@@ -17,7 +17,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
             <h1 className="h1 font-poppins text-white"> CloudStash</h1>
           </div>
           <div className="space-y-5 text-white">
-            <h1 className="h1">Manage your files the best way</h1>
+            <h1 className="h1">Your Digital Locker, Anytime, Anywhere.</h1>
             <p className="body-1">
               Want to store your documents digitally? You've come to the right
               place.
